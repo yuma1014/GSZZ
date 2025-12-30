@@ -1,155 +1,427 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#F2F2F7">
-<title>格式轉轉 Format Spin</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#F2F2F7">
+    <title>格式轉轉 | GZMM</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon.png">
+    <link rel="icon" type="image/png" href="icon.png">
+    
+    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
 
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon.png">
-<link rel="icon" type="image/png" href="icon.png">
+    <style>
+        /* --- iOS 設計系統 --- */
+        :root {
+            --bg-color: #F2F2F7;
+            --card-bg: rgba(255, 255, 255, 0.85);
+            --primary: #4c419e;
+            --primary-hover: #4c419e;
+            --text-main: #1C1C1E;
+            --text-sub: #8E8E93;
+            --separator: #C6C6C8;
+            --radius-l: 22px;
+            --radius-m: 14px;
+            --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+        }
 
-<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
+        body {
+            margin: 0; padding: 0;
+            background-color: var(--bg-color);
+            font-family: var(--font-family);
+            color: var(--text-main);
+            height: 100vh;
+            overflow: hidden;
+            display: flex; flex-direction: column;
+        }
 
-<style>
-/* ===== UI 完全保留（未改動） ===== */
-:root{
---bg:#F2F2F7;--card:rgba(255,255,255,.85);--pri:#4c419e;
---txt:#1C1C1E;--sub:#8E8E93;--r:22px;--rm:14px;
---shadow:0 4px 20px rgba(0,0,0,.06)
-}
-*{box-sizing:border-box}
-body{margin:0;font-family:-apple-system;background:var(--bg);color:var(--txt);height:100vh;overflow:hidden;display:flex;flex-direction:column}
-header{padding:16px 24px;display:flex;justify-content:space-between;align-items:center;background:rgba(242,242,247,.8);backdrop-filter:blur(10px)}
-.menu-btn{width:40px;height:40px;border-radius:50%;border:none;background:#fff}
-main{flex:1;overflow-y:auto;padding:20px 24px 120px}
-.card{background:var(--card);border-radius:var(--r);padding:24px;margin-bottom:20px;box-shadow:var(--shadow);cursor:pointer}
-.card h2{margin:0 0 6px}
-.workspace{position:fixed;inset:0;background:var(--bg);transform:translateY(100%);transition:.4s;z-index:20;padding:24px}
-.workspace.active{transform:translateY(0)}
-.drop-zone{border:2px dashed #C6C6C8;border-radius:var(--r);height:160px;display:flex;align-items:center;justify-content:center;margin-bottom:24px;background:#fff}
-select,button{width:100%;padding:16px;border-radius:var(--rm);border:none;margin-bottom:16px;font-size:16px}
-button{background:var(--pri);color:#fff;font-weight:600}
-.progress-container{display:none}
-.progress-bar{height:6px;background:#E5E5EA;border-radius:3px}
-.progress-fill{height:100%;width:0;background:var(--pri)}
-</style>
+        /* --- 頂部導航 --- */
+        header {
+            padding: 16px 24px;
+            display: flex; justify-content: space-between; align-items: center;
+            z-index: 10;
+            background: rgba(242, 242, 247, 0.8);
+            backdrop-filter: blur(10px);
+        }
+
+        .logo-container { height: 44px; display: flex; align-items: center; }
+        .logo-img { height: 100%; width: auto; object-fit: contain; display: block; }
+
+        .menu-btn {
+            background: #FFFFFF; border: none; cursor: pointer;
+            width: 40px; height: 40px; border-radius: 50%;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            display: flex; align-items: center; justify-content: center;
+            transition: var(--transition);
+            color: var(--primary);
+        }
+        .menu-btn:hover { transform: scale(1.1); }
+
+        /* --- 主畫面 --- */
+        main {
+            flex: 1; overflow-y: auto;
+            padding: 20px 24px 120px 24px;
+            scroll-behavior: smooth;
+        }
+
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.8);
+            border-radius: var(--radius-l);
+            padding: 24px; margin-bottom: 20px;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+            cursor: pointer;
+        }
+        @media (hover: hover) { .card:hover { transform: scale(1.02); } }
+        .card:active { transform: scale(0.96); }
+
+        .card-icon {
+            font-size: 32px; margin-bottom: 16px;
+            background: #F2F2F7; width: 64px; height: 64px;
+            border-radius: 18px;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--primary);
+        }
+
+        .card h2 { margin: 0 0 6px 0; font-size: 19px; font-weight: 600; }
+        .card p { margin: 0; color: var(--text-sub); font-size: 14px; line-height: 1.4; }
+
+        /* --- 工作區 Modal --- */
+        .workspace {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-color); z-index: 20;
+            transform: translateY(100%);
+            transition: transform 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+            display: flex; flex-direction: column;
+            padding: 24px 24px 40px 24px;
+        }
+        .workspace.active { transform: translateY(0); }
+
+        .ws-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .close-btn {
+            background: rgba(118, 118, 128, 0.12); border: none;
+            padding: 8px 16px; border-radius: 20px;
+            font-weight: 600; color: var(--text-main); font-size: 14px;
+            cursor: pointer;
+        }
+
+        .drop-zone {
+            border: 2px dashed #C6C6C8; border-radius: var(--radius-l);
+            height: 160px; display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            color: var(--text-sub); margin-bottom: 24px;
+            background: #FFFFFF; transition: var(--transition);
+        }
+        .drop-zone.dragover { border-color: var(--primary); background: rgba(74, 108, 150, 0.05); transform: scale(1.01); }
+
+        select, button.action-btn {
+            width: 100%; padding: 16px; border-radius: var(--radius-m);
+            border: none; margin-bottom: 16px; font-size: 16px; outline: none;
+        }
+        select { background: #FFFFFF; color: var(--text-main); appearance: none; }
+        
+        button.action-btn {
+            background: var(--primary); color: #fff;
+            font-weight: 600; cursor: pointer;
+            box-shadow: 0 4px 12px rgba(74, 108, 150, 0.3);
+            transition: var(--transition);
+        }
+        button.action-btn:active { transform: scale(0.98); opacity: 0.8; }
+        button.action-btn:disabled { background: var(--text-sub); opacity: 0.5; cursor: not-allowed; }
+
+        .privacy-notice {
+            margin-top: 20px; padding: 12px;
+            background: rgba(74, 108, 150, 0.08);
+            border-radius: var(--radius-m);
+            font-size: 13px; color: var(--text-sub);
+            text-align: center; line-height: 1.5;
+        }
+
+        .progress-container { margin-top: 20px; display: none; }
+        .progress-bar { height: 6px; background: #E5E5EA; border-radius: 3px; overflow: hidden; }
+        .progress-fill { height: 100%; background: var(--primary); width: 0%; transition: width 0.2s linear; }
+        .status-text { margin-top: 10px; font-size: 13px; color: var(--text-sub); display: flex; justify-content: space-between; }
+
+        /* --- 側邊欄 --- */
+        .sidebar {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.2); backdrop-filter: blur(5px);
+            z-index: 30; opacity: 0; pointer-events: none; transition: opacity 0.3s;
+        }
+        .sidebar.open { opacity: 1; pointer-events: auto; }
+        
+        .sidebar-content {
+            position: absolute; top: 0; right: 0; width: 80%; max-width: 320px;
+            height: 100%; background: #FFFFFF;
+            padding: 40px 28px;
+            transform: translateX(100%); transition: transform 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+            display: flex; flex-direction: column;
+            box-shadow: -5px 0 30px rgba(0,0,0,0.1);
+        }
+        .sidebar.open .sidebar-content { transform: translateX(0); }
+        
+        .credits-list ul { padding-left: 20px; }
+        .credits-list li { margin-bottom: 8px; color: var(--text-sub); font-size: 14px; }
+
+        footer { margin-top: auto; text-align: center; padding: 30px 20px; font-size: 13px; color: var(--text-sub); }
+        .icon-svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+    </style>
 </head>
-
 <body>
 
-<header>
-<div>格式轉轉</div>
-<button class="menu-btn">☰</button>
-</header>
+    <header>
+        <div class="logo-container">
+            <img src="logo_long.png" alt="格式轉轉" class="logo-img" onerror="this.style.display='none'; this.parentElement.innerText='格式轉轉'">
+        </div>
+        <button class="menu-btn" onclick="toggleSidebar()">
+            <svg class="icon-svg" viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+    </header>
 
-<main>
-<div class="card" onclick="openWorkspace('image')"><h2>圖片格式轉換</h2></div>
-<div class="card" onclick="openWorkspace('video')"><h2>影片格式轉換</h2></div>
-<div class="card" onclick="openWorkspace('gif')"><h2>影片 / GIF 互轉</h2></div>
-</main>
+    <main>
+        <div class="card" onclick="openWorkspace('image')">
+            <div class="card-icon"><svg class="icon-svg" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg></div>
+            <h2>圖片格式轉換</h2><p>支援 JPG, PNG, HEIC, WEBP 等格式互轉。</p>
+        </div>
+        <div class="card" onclick="openWorkspace('video')">
+            <div class="card-icon"><svg class="icon-svg" viewBox="0 0 24 24"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg></div>
+            <h2>影片格式轉換</h2><p>MP4, MOV, MKV, AVI, WMV 全格式支援。</p>
+        </div>
+        <div class="card" onclick="openWorkspace('gif')">
+            <div class="card-icon"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"></path><path d="M10 9v6"></path><path d="M14 9v6"></path></svg></div>
+            <h2>影片與 GIF 互轉</h2><p>製作高品質 GIF 動圖，或還原為影片。</p>
+        </div>
+        <footer><div id="copyright"></div></footer>
+    </main>
 
-<div id="workspace" class="workspace">
-<h2 id="ws-title">工具</h2>
+    <div id="workspace" class="workspace">
+        <div class="ws-header">
+            <h2 id="ws-title" style="margin:0; color: var(--text-main); font-size: 22px;">工具名稱</h2>
+            <button class="close-btn" onclick="closeWorkspace()">✕ 關閉</button>
+        </div>
+        
+        <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+            <svg class="icon-svg" style="width: 32px; height: 32px; color: var(--separator); margin-bottom: 10px;" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            <p style="margin:0;">點擊或拖放檔案</p>
+            <input type="file" id="file-input" style="display: none;">
+        </div>
+        
+        <div id="file-info" style="margin-bottom: 15px; font-size: 14px; color: var(--primary); font-weight: 500;">尚未選擇檔案</div>
+        <select id="format-select"><option value="" disabled selected>選擇輸出格式</option></select>
+        <button class="action-btn" id="convert-btn" onclick="startConversion()">開始轉換</button>
 
-<div class="drop-zone" onclick="fileInput.click()">點擊選擇檔案
-<input type="file" id="fileInput" hidden>
-</div>
+        <div class="privacy-notice">🔒 <strong>隱私安全承諾</strong><br>本軟體為純前端應用，所有轉換皆在您的裝置上執行，檔案不會上傳。<br>轉換速率取決於用戶設備效能，若檔案較大請耐心等候。</div>
 
-<div id="file-info">尚未選擇檔案</div>
-<select id="format-select"></select>
-<button id="convert-btn" onclick="startConversion()">開始轉換</button>
+        <div class="progress-container" id="progress-container">
+            <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+            <div class="status-text"><span id="progress-percent">0%</span><span id="time-left">準備中...</span></div>
+        </div>
+    </div>
 
-<div class="progress-container" id="progress-container">
-<div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
-<div id="time-left">準備中...</div>
-</div>
-</div>
+    <div class="sidebar" id="sidebar" onclick="if(event.target === this) toggleSidebar()">
+        <div class="sidebar-content">
+            <h2 style="color: var(--primary); margin-bottom: 30px;">關於軟體</h2>
+            <div class="credits-list">
+                <h3>非常感謝 / Credits</h3>
+                <ul><li>FFmpeg.wasm v0.11 (MIT)</li><li>Google Fonts</li><li>HTML5 Canvas API</li></ul>
+                <p style="margin-top: 20px; font-size: 13px; line-height: 1.6; color: var(--text-sub);">本程式所有運算皆於本地端完成。</p>
+            </div>
+            <div style="margin-top: auto; font-size: 12px; color: #C6C6C8;">Version 2.1.0 (Universal)<br>Build 2025</div>
+        </div>
+    </div>
 
-<script>
-/* ========= SAB 偵測 ========= */
-function supportsSharedArrayBuffer(){
-    return typeof SharedArrayBuffer !== 'undefined';
-}
+    <script>
+        let currentMode = ''; 
+        let selectedFile = null;
+        let ffmpeg = null; // 0.11 instance
+        const { createFFmpeg, fetchFile } = FFmpeg; // 0.11 API
 
-let currentMode='',selectedFile=null,ffmpeg=null;
-const { createFFmpeg, fetchFile } = FFmpeg;
+        function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
+        
+        function openWorkspace(mode) {
+            // --- 設備偵測新增部分 Start ---
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            
+            if (isMobile && (mode === 'video' || mode === 'gif')) {
+                alert('⚠️ 系統提示\n\n受限於行動裝置瀏覽器效能與記憶體限制，影片轉換功能僅支援電腦版瀏覽器。\n\n請使用電腦開啟以獲得完整體驗。');
+                return;
+            }
+            // --- 設備偵測新增部分 End ---
 
-/* ========= FFmpeg 初始化（自動降級） ========= */
-async function initFFmpeg(){
-    if(ffmpeg) return;
+            currentMode = mode;
+            const titles = { 'image': '圖片格式轉換', 'video': '影片格式轉換', 'gif': '影片與 GIF 互轉' };
+            document.getElementById('ws-title').innerText = titles[mode];
+            document.getElementById('workspace').classList.add('active');
+            resetWorkspace();
+            setupFormats(mode);
+        }
+        function closeWorkspace() { document.getElementById('workspace').classList.remove('active'); resetWorkspace(); }
 
-    const singleThread = !supportsSharedArrayBuffer();
+        function resetWorkspace() {
+            selectedFile = null;
+            document.getElementById('file-input').value = '';
+            document.getElementById('file-info').innerText = '尚未選擇檔案';
+            document.getElementById('progress-container').style.display = 'none';
+            document.getElementById('convert-btn').disabled = false;
+            document.getElementById('convert-btn').innerText = '開始轉換';
+        }
 
-    ffmpeg = createFFmpeg({
-        log:true,
-        corePath:'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js',
-        worker: !singleThread
-    });
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+        dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); handleFile(e.dataTransfer.files[0]); });
+        fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
 
-    ffmpeg.setProgress(({ratio})=>{
-        document.getElementById('progress-fill').style.width = (ratio*100)+'%';
-    });
+        function handleFile(file) {
+            if (!file) return;
+            selectedFile = file;
+            document.getElementById('file-info').innerText = `已選擇: ${file.name} (${(file.size/1024/1024).toFixed(2)} MB)`;
+            const ext = file.name.split('.').pop().toLowerCase();
+            updateFormatOptions(ext);
+        }
 
-    await ffmpeg.load();
-}
+        function setupFormats(mode) {
+            const select = document.getElementById('format-select');
+            select.innerHTML = '<option value="" disabled selected>選擇輸出格式</option>';
+            let formats = [];
+            if (mode === 'image') formats = [{val:'jpg',name:'JPG'},{val:'png',name:'PNG'},{val:'webp',name:'WEBP'},{val:'heic',name:'HEIC (Apple)'},{val:'bmp',name:'BMP'},{val:'gif',name:'GIF'},{val:'ico',name:'ICO'}];
+            if (mode === 'video') formats = [{val:'mp4',name:'MP4'},{val:'mov',name:'MOV'},{val:'mkv',name:'MKV'},{val:'avi',name:'AVI'},{val:'webm',name:'WEBM'},{val:'wmv',name:'WMV'},{val:'mp3',name:'MP3 (僅音訊)'}];
+            if (mode === 'gif') formats = [{val:'gif',name:'GIF 動圖'},{val:'mp4',name:'MP4 影片'}];
 
-/* ========= UI ========= */
-const fileInput=document.getElementById('fileInput');
-fileInput.onchange=e=>{
-    selectedFile=e.target.files[0];
-    document.getElementById('file-info').innerText=selectedFile.name;
-};
+            formats.forEach(item => {
+                const opt = document.createElement('option');
+                opt.value = item.val; opt.innerText = item.name; select.appendChild(opt);
+            });
+        }
 
-function openWorkspace(m){
-    currentMode=m;
-    document.getElementById('workspace').classList.add('active');
-    const sel=document.getElementById('format-select');
-    sel.innerHTML='';
-    const map={
-        image:['jpg','png','webp','bmp'],
-        video:['mp4','webm'],
-        gif:['gif','mp4']
-    };
-    map[m].forEach(f=>{
-        let o=document.createElement('option');
-        o.value=f;o.text=f.toUpperCase();sel.appendChild(o);
-    });
-}
+        function updateFormatOptions(inputExt) {
+            const options = document.getElementById('format-select').options;
+            for (let i=0; i<options.length; i++) options[i].disabled = (options[i].value === inputExt);
+        }
 
-/* ========= 轉換 ========= */
-async function startConversion(){
-    if(!selectedFile) return alert('請選檔案');
+        async function startConversion() {
+            if (!selectedFile) { alert('請先選擇檔案'); return; }
+            const targetFormat = document.getElementById('format-select').value;
+            if (!targetFormat) return;
 
-    document.getElementById('progress-container').style.display='block';
-    document.getElementById('time-left').innerText =
-        supportsSharedArrayBuffer() ? '轉換中...' : '行動裝置降級模式（較慢）';
+            document.getElementById('convert-btn').disabled = true;
+            document.getElementById('convert-btn').innerText = '準備中...';
+            document.getElementById('progress-container').style.display = 'block';
 
-    await initFFmpeg();
+            try {
+                const simpleImages = ['jpg','png','webp','bmp','jpeg','ico'];
+                const inputExt = selectedFile.name.split('.').pop().toLowerCase();
+                
+                if (currentMode === 'image' && simpleImages.includes(targetFormat) && simpleImages.includes(inputExt)) {
+                    await convertImageCanvas(selectedFile, targetFormat);
+                } else {
+                    await convertWithLegacyFFmpeg(selectedFile, targetFormat);
+                }
+            } catch (err) {
+                console.error(err);
+                alert('轉換失敗: ' + err.message);
+                resetUIState();
+            }
+        }
 
-    const ext=selectedFile.name.split('.').pop();
-    const out=document.getElementById('format-select').value;
+        // Canvas 簡單圖片轉換
+        function convertImageCanvas(file, format) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.width; canvas.height = img.height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0);
+                        updateProgress(50);
+                        setTimeout(() => {
+                            let mime = format === 'jpg' ? 'image/jpeg' : `image/${format}`;
+                            if(format === 'ico') mime = 'image/x-icon';
+                            canvas.toBlob((blob) => {
+                                if(!blob) { reject(new Error("Canvas Error")); return; }
+                                downloadFile(blob, `converted.${format}`);
+                                updateProgress(100);
+                                resolve(); resetUIState();
+                            }, mime, 0.9);
+                        }, 500);
+                    };
+                    img.onerror = () => reject(new Error("Image Load Error"));
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
 
-    ffmpeg.FS('writeFile','in.'+ext,await fetchFile(selectedFile));
+        // 使用 FFmpeg 0.11 (不需 Header)
+        async function convertWithLegacyFFmpeg(file, format) {
+            if (ffmpeg === null) {
+                document.getElementById('convert-btn').innerText = '下載轉換核心...';
+                ffmpeg = createFFmpeg({ log: true, corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js' });
+                ffmpeg.setProgress(({ ratio }) => {
+                    updateProgress(Math.round(ratio * 100));
+                });
+                await ffmpeg.load();
+            }
 
-    let args=['-i','in.'+ext,'out.'+out];
-    if(out==='gif') args=['-i','in.'+ext,'-vf','fps=8,scale=320:-1','out.gif'];
+            document.getElementById('convert-btn').innerText = '轉換中...';
+            const inputName = 'input.' + file.name.split('.').pop();
+            const outputName = 'output.' + format;
 
-    try{
-        await ffmpeg.run(...args);
-    }catch(e){
-        alert('轉換失敗（裝置效能不足）');
-        return;
-    }
+            ffmpeg.FS('writeFile', inputName, await fetchFile(file));
 
-    const data=ffmpeg.FS('readFile','out.'+out);
-    const a=document.createElement('a');
-    a.href=URL.createObjectURL(new Blob([data.buffer]));
-    a.download='converted.'+out;
-    a.click();
-}
-</script>
+            let args = ['-i', inputName, outputName];
+            if (format === 'gif') args = ['-i', inputName, '-vf', 'fps=10,scale=320:-1', outputName];
+            if (format === 'mp4') args = ['-i', inputName, '-c:v', 'libx264', '-preset', 'ultrafast', '-c:a', 'aac', outputName];
 
+            await ffmpeg.run(...args);
+
+            const data = ffmpeg.FS('readFile', outputName);
+            let mime = `video/${format}`;
+            if(['jpg','png','gif','webp'].includes(format)) mime = `image/${format}`;
+
+            downloadFile(new Blob([data.buffer], { type: mime }), outputName);
+            
+            // 清理記憶體
+            try { ffmpeg.FS('unlink', inputName); ffmpeg.FS('unlink', outputName); } catch(e){}
+            resetUIState();
+        }
+
+        function updateProgress(percent) {
+            if (percent < 0) return;
+            document.getElementById('progress-fill').style.width = `${percent}%`;
+            document.getElementById('progress-percent').innerText = `${percent}%`;
+            if(percent >= 100) document.getElementById('time-left').innerText = '完成！';
+        }
+
+        function downloadFile(blob, filename) {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        }
+
+        function resetUIState() {
+            document.getElementById('convert-btn').disabled = false;
+            document.getElementById('convert-btn').innerText = '開始轉換';
+        }
+
+        function updateFooter() {
+            const now = new Date();
+            const year = new Intl.DateTimeFormat('en-US', { year: 'numeric', timeZone: 'Asia/Taipei' }).format(now);
+            document.getElementById('copyright').innerHTML = `&copy;${year} 格式轉轉<br>DESIGNED BY - LCY from Taiwan(ROC) •`;
+        }
+        updateFooter();
+    </script>
 </body>
 </html>
