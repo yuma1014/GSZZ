@@ -10,15 +10,15 @@
     <link rel="apple-touch-icon" href="icon.png">
     <link rel="icon" type="image/png" href="icon.png">
     
-    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.9.8/dist/ffmpeg.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.9.8/dist/ffmpeg.min.js"></script>
 
     <style>
-        /* --- iOS 設計系統 --- */
+        /* --- iOS 設計系統 (保留您的自定義配色) --- */
         :root {
             --bg-color: #F2F2F7;
-            --card-bg: rgba(255, 255, 255, 0.95); /* 稍微不透明一點以提升效能 */
-            --primary: #4c419e; 
-            --primary-hover: #4c419e;
+            --card-bg: rgba(255, 255, 255, 0.95);
+            --primary: #4c419e; /* 您的自定義紫色 */
+            --primary-hover: #3e3582;
             --text-main: #000000;
             --text-sub: #8E8E93;
             --separator: #C6C6C8;
@@ -35,7 +35,6 @@
             background-color: var(--bg-color);
             font-family: var(--font-family);
             color: var(--text-main);
-            /* ⚠️ 修復手機高度卡死問題 */
             height: 100vh;
             height: 100dvh; 
             overflow: hidden;
@@ -43,17 +42,30 @@
         }
 
         header {
-            padding: 12px 20px;
+            padding: 8px 20px; /* ⚠️ 調整 Padding 讓 Logo 空間更大 */
             height: 60px;
             display: flex; justify-content: space-between; align-items: center;
             z-index: 10;
             background: rgba(242, 242, 247, 0.85);
             backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-            position: relative; /* 確保層級正確 */
+            position: relative;
         }
 
-        .logo-container { height: 100%; display: flex; align-items: center; }
-        .logo-img { height: 32px; width: auto; object-fit: contain; }
+        .logo-container { 
+            height: 100%; 
+            display: flex; 
+            align-items: center; 
+            /* ⚠️ 確保 Logo 容器有足夠寬度 */
+            flex: 1;
+        }
+        
+        .logo-img { 
+            /* ⚠️ 修復 Logo 大小：改為高度填滿，寬度自動，最大高度限制為 44px */
+            height: 100%; 
+            max-height: 44px; 
+            width: auto; 
+            object-fit: contain; 
+        }
 
         .menu-btn {
             background: #FFFFFF; border: none; cursor: pointer;
@@ -61,17 +73,18 @@
             box-shadow: 0 2px 6px rgba(0,0,0,0.08);
             display: flex; align-items: center; justify-content: center;
             color: var(--primary);
-            z-index: 11; /* 確保按鈕在最上層 */
+            z-index: 11;
+            flex-shrink: 0; /* 防止按鈕被擠壓 */
         }
 
         main {
             flex: 1; 
-            overflow-y: auto; /* 允許垂直捲動 */
+            overflow-y: auto;
             overflow-x: hidden;
             padding: 20px 20px 100px 20px;
-            -webkit-overflow-scrolling: touch; /* 讓 iOS 捲動更滑順 */
+            -webkit-overflow-scrolling: touch;
             position: relative;
-            z-index: 1; /* 確保在底層 */
+            z-index: 1;
         }
 
         .card {
@@ -79,9 +92,8 @@
             border-radius: var(--radius-l);
             padding: 24px; margin-bottom: 16px;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
-            display: block; /* 確保是區塊元素 */
+            display: block;
             position: relative;
-            /* ⚠️ 讓手機更容易點擊 */
             cursor: pointer;
             touch-action: manipulation; 
         }
@@ -93,23 +105,19 @@
             border-radius: 16px;
             display: flex; align-items: center; justify-content: center;
             color: var(--primary);
-            pointer-events: none; /* 讓點擊穿透圖示直接觸發卡片 */
+            pointer-events: none;
         }
 
         .card h2 { margin: 0 0 6px 0; font-size: 18px; font-weight: 600; pointer-events: none; }
         .card p { margin: 0; color: var(--text-sub); font-size: 14px; line-height: 1.4; pointer-events: none; }
 
-        /* --- 工作區 Modal (關鍵修復) --- */
         .workspace {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: var(--bg-color); 
-            z-index: 50; /* 蓋過一切 */
-            
-            /* ⚠️ 關鍵：預設狀態下完全隱藏，不擋住下方點擊 */
+            z-index: 50;
             transform: translateY(100%);
             visibility: hidden; 
             pointer-events: none;
-            
             transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s linear 0.3s;
             display: flex; flex-direction: column;
             padding: 20px;
@@ -118,7 +126,7 @@
         .workspace.active { 
             transform: translateY(0); 
             visibility: visible;
-            pointer-events: auto; /* 開啟後才允許點擊 */
+            pointer-events: auto;
             transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s linear 0s;
         }
 
@@ -141,7 +149,7 @@
         select, button.action-btn {
             width: 100%; padding: 16px; border-radius: var(--radius-m);
             border: none; margin-bottom: 16px; font-size: 17px; outline: none;
-            -webkit-appearance: none; /* iOS 樣式重置 */
+            -webkit-appearance: none;
         }
         select { background: #FFFFFF; color: var(--text-main); }
         
@@ -151,24 +159,16 @@
         }
         button.action-btn:disabled { background: var(--text-sub); opacity: 0.6; }
 
-        /* --- 側邊欄修復 --- */
         .sidebar {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.3); backdrop-filter: blur(3px);
             z-index: 100; 
-            
-            /* ⚠️ 關鍵修復 */
             opacity: 0; 
             pointer-events: none; 
             visibility: hidden;
-            
             transition: opacity 0.3s;
         }
-        .sidebar.open { 
-            opacity: 1; 
-            pointer-events: auto; 
-            visibility: visible;
-        }
+        .sidebar.open { opacity: 1; pointer-events: auto; visibility: visible; }
         
         .sidebar-content {
             position: absolute; top: 0; right: 0; width: 280px;
@@ -257,7 +257,7 @@
             <div class="credits-list">
                 <p style="font-size: 14px; color: #333; margin-bottom: 10px;">技術支援：</p>
                 <ul style="color: #666; font-size: 13px; padding-left: 20px;">
-                    <li>FFmpeg v0.9.8</li>
+                    <li>FFmpeg v0.9.8 (Stable)</li>
                     <li>Pure Frontend PWA</li>
                 </ul>
                 <p style="margin-top: 20px; font-size: 13px; color: #8E8E93; line-height: 1.5;">
@@ -303,15 +303,18 @@
         async function initFFmpeg() {
             if(ffmpeg) return;
             try {
-                // 使用 v0.9.8 核心
+                // ⚠️ 關鍵修復：使用 jsDelivr 並指向正確的 corePath
+                // 這通常能解決 "Engine startup failed"
                 ffmpeg = createFFmpeg({ 
                     log: true,
-                    corePath: 'https://unpkg.com/@ffmpeg/core@0.9.8/dist/ffmpeg-core.js'
+                    corePath: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.9.8/dist/ffmpeg-core.js'
                 });
                 await ffmpeg.load();
                 console.log('FFmpeg Ready');
             } catch (e) {
                 console.error(e);
+                // 讓錯誤訊息更明確
+                alert('引擎啟動失敗，原因: ' + e.message + '\n請檢查網路連線是否正常。');
                 ffmpeg = null;
             }
         }
@@ -328,9 +331,7 @@
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('file-input');
         
-        // 修正：防止重複綁定與事件冒泡
         dropZone.onclick = () => document.getElementById('file-input').click();
-        
         fileInput.onchange = (e) => handleFile(e.target.files[0]);
 
         function handleFile(file) {
@@ -381,7 +382,8 @@
                         btn.innerText = '正在初始化引擎...';
                         await initFFmpeg();
                     }
-                    if (ffmpeg === null) throw new Error("引擎啟動失敗");
+                    // 如果還是 null，表示初始化失敗
+                    if (ffmpeg === null) throw new Error("引擎初始化失敗，請檢查網路或重新整理。");
                     
                     await convertWithFFmpeg(selectedFile, targetFormat);
                 }
