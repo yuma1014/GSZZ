@@ -13,11 +13,11 @@
     <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.9.8/dist/ffmpeg.min.js"></script>
 
     <style>
-        /* --- iOS 設計系統 (保留您的自定義配色) --- */
+        /* --- iOS 設計系統 (保留您的自定義紫色) --- */
         :root {
             --bg-color: #F2F2F7;
             --card-bg: rgba(255, 255, 255, 0.95);
-            --primary: #4c419e; /* 您的自定義紫色 */
+            --primary: #4c419e; 
             --primary-hover: #3e3582;
             --text-main: #000000;
             --text-sub: #8E8E93;
@@ -42,7 +42,7 @@
         }
 
         header {
-            padding: 8px 20px; /* ⚠️ 調整 Padding 讓 Logo 空間更大 */
+            padding: 8px 20px;
             height: 60px;
             display: flex; justify-content: space-between; align-items: center;
             z-index: 10;
@@ -55,14 +55,12 @@
             height: 100%; 
             display: flex; 
             align-items: center; 
-            /* ⚠️ 確保 Logo 容器有足夠寬度 */
             flex: 1;
         }
         
         .logo-img { 
-            /* ⚠️ 修復 Logo 大小：改為高度填滿，寬度自動，最大高度限制為 44px */
             height: 100%; 
-            max-height: 44px; 
+            max-height: 44px; /* 您的 Logo 大小設定 */
             width: auto; 
             object-fit: contain; 
         }
@@ -74,7 +72,7 @@
             display: flex; align-items: center; justify-content: center;
             color: var(--primary);
             z-index: 11;
-            flex-shrink: 0; /* 防止按鈕被擠壓 */
+            flex-shrink: 0;
         }
 
         main {
@@ -156,8 +154,9 @@
         button.action-btn {
             background: var(--primary); color: #fff;
             font-weight: 600; cursor: pointer;
+            transition: background 0.3s;
         }
-        button.action-btn:disabled { background: var(--text-sub); opacity: 0.6; }
+        button.action-btn:disabled { background: var(--text-sub); opacity: 0.7; }
 
         .sidebar {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -257,7 +256,7 @@
             <div class="credits-list">
                 <p style="font-size: 14px; color: #333; margin-bottom: 10px;">技術支援：</p>
                 <ul style="color: #666; font-size: 13px; padding-left: 20px;">
-                    <li>FFmpeg v0.9.8 (Stable)</li>
+                    <li>FFmpeg v0.9.8 (Mobile Stable)</li>
                     <li>Pure Frontend PWA</li>
                 </ul>
                 <p style="margin-top: 20px; font-size: 13px; color: #8E8E93; line-height: 1.5;">
@@ -287,12 +286,8 @@
             resetWorkspace();
             setupFormats(mode);
 
-            // 延遲載入以確保 UI 流暢
-            setTimeout(() => {
-                if ((mode === 'video' || mode === 'gif') && ffmpeg === null) {
-                    initFFmpeg();
-                }
-            }, 300);
+            // ⚠️ 修正：打開時不強求立即載入，等使用者按按鈕再檢查
+            // 這樣可以避免打開選單時卡頓
         }
 
         function closeWorkspace() { 
@@ -300,22 +295,39 @@
             resetWorkspace(); 
         }
 
-        async function initFFmpeg() {
-            if(ffmpeg) return;
+        // ⚠️ 修正：更強健的初始化函數，支援重複呼叫與狀態檢查
+        async function loadFFmpeg() {
+            if (ffmpeg && ffmpeg.isLoaded()) return true;
+
+            const btn = document.getElementById('convert-btn');
+            const originalText = btn.innerText;
+            btn.disabled = true;
+            btn.innerText = '下載轉換引擎中 (首次需時較長)...';
+
             try {
-                // ⚠️ 關鍵修復：使用 jsDelivr 並指向正確的 corePath
-                // 這通常能解決 "Engine startup failed"
-                ffmpeg = createFFmpeg({ 
-                    log: true,
-                    corePath: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.9.8/dist/ffmpeg-core.js'
-                });
-                await ffmpeg.load();
+                if (!ffmpeg) {
+                    ffmpeg = createFFmpeg({ 
+                        log: true,
+                        // ⚠️ 關鍵：使用 jsDelivr 並明確指定 Core 路徑
+                        corePath: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.9.8/dist/ffmpeg-core.js'
+                    });
+                }
+                
+                if (!ffmpeg.isLoaded()) {
+                    await ffmpeg.load();
+                }
+                
                 console.log('FFmpeg Ready');
+                btn.innerText = originalText;
+                btn.disabled = false;
+                return true;
             } catch (e) {
                 console.error(e);
-                // 讓錯誤訊息更明確
-                alert('引擎啟動失敗，原因: ' + e.message + '\n請檢查網路連線是否正常。');
-                ffmpeg = null;
+                alert('引擎下載失敗，請檢查網路連線。\n詳細錯誤: ' + e.message);
+                btn.innerText = '引擎載入失敗';
+                btn.disabled = false;
+                ffmpeg = null; // 重置以便重試
+                return false;
             }
         }
 
@@ -366,27 +378,27 @@
             const targetFormat = document.getElementById('format-select').value;
             if (!targetFormat) return;
 
+            // ⚠️ 修正：在開始轉換前，強制檢查並等待引擎載入
+            const simpleImages = ['jpg','png','webp','bmp','jpeg','ico'];
+            const inputExt = selectedFile.name.split('.').pop().toLowerCase();
+            
+            // 如果是簡單圖片轉換，不需要 FFmpeg
+            if (currentMode === 'image' && simpleImages.includes(targetFormat) && simpleImages.includes(inputExt)) {
+                 await convertImageCanvas(selectedFile, targetFormat);
+                 return;
+            }
+
+            // 如果是影片/GIF，必須確保引擎已載入
+            const isReady = await loadFFmpeg();
+            if (!isReady) return; // 如果載入失敗則中止
+
             const btn = document.getElementById('convert-btn');
             btn.disabled = true;
-            btn.innerText = '處理中...';
+            btn.innerText = '處理中 (請勿關閉螢幕)...';
             document.getElementById('progress-container').style.display = 'block';
 
             try {
-                const simpleImages = ['jpg','png','webp','bmp','jpeg','ico'];
-                const inputExt = selectedFile.name.split('.').pop().toLowerCase();
-                
-                if (currentMode === 'image' && simpleImages.includes(targetFormat) && simpleImages.includes(inputExt)) {
-                    await convertImageCanvas(selectedFile, targetFormat);
-                } else {
-                    if (ffmpeg === null || !ffmpeg.isLoaded()) {
-                        btn.innerText = '正在初始化引擎...';
-                        await initFFmpeg();
-                    }
-                    // 如果還是 null，表示初始化失敗
-                    if (ffmpeg === null) throw new Error("引擎初始化失敗，請檢查網路或重新整理。");
-                    
-                    await convertWithFFmpeg(selectedFile, targetFormat);
-                }
+                await convertWithFFmpeg(selectedFile, targetFormat);
             } catch (err) {
                 console.error(err);
                 alert('轉換失敗: ' + err.message);
@@ -395,6 +407,11 @@
         }
 
         function convertImageCanvas(file, format) {
+            const btn = document.getElementById('convert-btn');
+            btn.disabled = true;
+            btn.innerText = '處理中...';
+            document.getElementById('progress-container').style.display = 'block';
+
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.onload = (e) => {
@@ -428,7 +445,6 @@
 
             ffmpeg.FS('writeFile', inputName, await fetchFile(file));
 
-            document.getElementById('convert-btn').innerText = '轉換中 (請勿關閉)...';
             ffmpeg.setProgress(({ ratio }) => updateProgress(Math.round(ratio * 100)));
 
             let args = ['-i', inputName, outputName];
