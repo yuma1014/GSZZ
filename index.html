@@ -13,7 +13,7 @@
     <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.9.0/dist/ffmpeg.min.js"></script>
 
     <style>
-        /* --- iOS 設計系統 (保留 LCY 紫色風格) --- */
+        /* --- iOS 設計系統 (維持您的紫色風格) --- */
         :root {
             --bg-color: #F2F2F7;
             --card-bg: rgba(255, 255, 255, 0.95);
@@ -42,9 +42,9 @@
         }
 
         header {
-            /* Logo 空間調整 */
-            padding: 8px 20px;
-            height: 60px;
+            /* ⚠️ 恢復原始 Logo 空間設定 */
+            padding: 10px 20px; 
+            height: 64px; /* 稍微加高以容納大 Logo */
             display: flex; justify-content: space-between; align-items: center;
             z-index: 10;
             background: rgba(242, 242, 247, 0.85);
@@ -56,17 +56,16 @@
             height: 100%; 
             display: flex; 
             align-items: center; 
-            flex: 1; /* 佔據左側空間 */
+            flex: 1;
+            overflow: hidden; /* 防止撐開 */
         }
         
         .logo-img { 
-            /* ⚠️ Logo 大小修復：讓高度填滿 Header，寬度自動 */
+            /* ⚠️ Logo 大小改回原始設定：填滿高度，寬度自動 */
             height: 100%; 
             width: auto; 
             object-fit: contain; 
             display: block;
-            /* 移除之前的 32px 限制，改為最大不超過容器 */
-            max-height: 48px; 
         }
 
         .menu-btn {
@@ -77,6 +76,7 @@
             color: var(--primary);
             z-index: 11;
             flex-shrink: 0;
+            margin-left: 10px;
         }
 
         main {
@@ -259,7 +259,7 @@
             <div class="credits-list">
                 <p style="font-size: 14px; color: #333; margin-bottom: 10px;">技術支援：</p>
                 <ul style="color: #666; font-size: 13px; padding-left: 20px;">
-                    <li>FFmpeg v0.9.0 (Local)</li>
+                    <li>FFmpeg v0.9.0 (CDN)</li>
                     <li>Pure Frontend PWA</li>
                 </ul>
                 <p style="margin-top: 20px; font-size: 13px; color: #8E8E93; line-height: 1.5;">
@@ -289,7 +289,7 @@
             resetWorkspace();
             setupFormats(mode);
 
-            // 延遲載入 (避免 UI 卡頓)
+            // 延遲載入以確保 UI 流暢
             setTimeout(() => {
                 if ((mode === 'video' || mode === 'gif') && ffmpeg === null) {
                     initFFmpeg();
@@ -305,16 +305,18 @@
         async function initFFmpeg() {
             if(ffmpeg) return;
             try {
-                // ⚠️ 這裡使用 v0.9.0 本地檔案
+                // ⚠️ 關鍵設定：強制使用 jsDelivr CDN 載入 v0.9.0 核心
+                // 不再依賴本地檔案，減少 iOS 路徑讀取錯誤
                 ffmpeg = createFFmpeg({ 
                     log: true,
-                    corePath: './ffmpeg-core.js' // 請確保 ffmpeg-core.js 與 index.html 在同一目錄
+                    corePath: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.9.0/dist/ffmpeg-core.js'
                 });
                 await ffmpeg.load();
                 console.log('FFmpeg Ready');
             } catch (e) {
                 console.error(e);
-                alert('引擎載入失敗。\n請確認您是否已下載 ffmpeg-core.js 與 ffmpeg-core.wasm 並放在同一資料夾內。');
+                // 顯示真實錯誤訊息
+                alert('引擎載入失敗：' + e.message + '\n\n請檢查您的網路連線 (某些網路環境可能會阻擋 .wasm 檔案下載)。');
                 ffmpeg = null;
             }
         }
@@ -382,7 +384,7 @@
                         btn.innerText = '正在初始化引擎...';
                         await initFFmpeg();
                     }
-                    if (ffmpeg === null) throw new Error("引擎啟動失敗");
+                    if (ffmpeg === null) throw new Error("無法連接到轉換引擎，請檢查網路。");
                     
                     await convertWithFFmpeg(selectedFile, targetFormat);
                 }
