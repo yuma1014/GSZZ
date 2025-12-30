@@ -10,7 +10,7 @@
     <link rel="apple-touch-icon" href="icon.png">
     <link rel="icon" type="image/png" href="icon.png">
     
-    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.0/dist/ffmpeg.min.js"></script>
+    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.9.8/dist/ffmpeg.min.js"></script>
 
     <style>
         /* --- iOS 設計系統 --- */
@@ -227,10 +227,10 @@
             <h2 style="color: var(--primary); margin-bottom: 30px;">關於軟體</h2>
             <div class="credits-list">
                 <h3>非常感謝 / Credits</h3>
-                <ul><li>FFmpeg.wasm v0.11 (Single Thread)</li><li>Google Fonts</li><li>HTML5 Canvas API</li></ul>
+                <ul><li>FFmpeg.wasm v0.9.8 (iOS Stable)</li><li>Google Fonts</li><li>HTML5 Canvas API</li></ul>
                 <p style="margin-top: 20px; font-size: 13px; line-height: 1.6; color: var(--text-sub);">本程式所有運算皆於本地端完成。</p>
             </div>
-            <div style="margin-top: auto; font-size: 12px; color: #C6C6C8;">Version 2.4.0 (Compatibility Mode)<br>Build 2025</div>
+            <div style="margin-top: auto; font-size: 12px; color: #C6C6C8;">Version 3.0 (iOS Final Fix)<br>Build 2025</div>
         </div>
     </div>
 
@@ -238,6 +238,8 @@
         let currentMode = ''; 
         let selectedFile = null;
         let ffmpeg = null; 
+        
+        // ⚠️ v0.9.8 的 API 寫法略有不同，這是專為 iOS 修正的版本
         const { createFFmpeg, fetchFile } = FFmpeg;
 
         function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
@@ -259,13 +261,13 @@
         async function initFFmpeg() {
             try {
                 if(ffmpeg) return;
-                console.log('正在初始化 FFmpeg (單核心模式)...');
+                console.log('正在初始化 FFmpeg v0.9.8...');
                 
-                // ⚠️ 關鍵設定：強制指向 v0.11.0
-                // 這個版本在檢測不到 SharedArrayBuffer 時，會自動降級為單執行緒，不會報錯！
+                // ⚠️ 使用 v0.9.8 核心，這是最穩定的單執行緒版本
+                // log: true 方便除錯
                 ffmpeg = createFFmpeg({ 
-                    log: true, 
-                    corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js'
+                    log: true,
+                    corePath: 'https://unpkg.com/@ffmpeg/core@0.9.8/dist/ffmpeg-core.js'
                 });
                 
                 await ffmpeg.load();
@@ -290,7 +292,7 @@
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('file-input');
         dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
-        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'); });
         dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); handleFile(e.dataTransfer.files[0]); });
         fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
 
@@ -339,7 +341,7 @@
                     await convertImageCanvas(selectedFile, targetFormat);
                 } else {
                     if (ffmpeg === null || !ffmpeg.isLoaded()) {
-                        btn.innerText = '正在初始化引擎...';
+                        btn.innerText = '正在初始化引擎... (首次載入約需10秒)';
                         await initFFmpeg();
                     }
                     if (ffmpeg === null) throw new Error("引擎啟動失敗，請重新整理頁面。");
@@ -386,9 +388,11 @@
             const inputName = 'input.' + file.name.split('.').pop();
             const outputName = 'output.' + format;
 
+            // v0.9.8 使用方式
             ffmpeg.FS('writeFile', inputName, await fetchFile(file));
 
             document.getElementById('convert-btn').innerText = '轉換中 (請勿關閉)...';
+            
             ffmpeg.setProgress(({ ratio }) => {
                 updateProgress(Math.round(ratio * 100));
             });
