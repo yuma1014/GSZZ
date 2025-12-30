@@ -330,7 +330,7 @@
         </div>
     </div>
 
-    <script>
+       <script>
         let currentMode = ''; 
         let selectedFile = null;
         let ffmpeg = null;
@@ -356,6 +356,9 @@
             document.getElementById('progress-container').style.display = 'none';
             document.getElementById('convert-btn').disabled = false;
             document.getElementById('convert-btn').innerText = '開始轉換';
+            
+            // 每次關閉工作區時，如果沒有正在跑的任務，可以考慮不銷毀 ffmpeg 以加速下次使用
+            // 但如果出錯，我們會在 catch 區塊銷毀它
         }
 
         const dropZone = document.getElementById('drop-zone');
@@ -374,19 +377,17 @@
             updateFormatOptions(ext);
         }
 
-        // 修改：大幅擴充格式清單，並依常用度排序
         function setupFormats(mode) {
             const select = document.getElementById('format-select');
             select.innerHTML = '<option value="" disabled selected>選擇輸出格式</option>';
             
             let formats = [];
-            // 常用格式優先
             if (mode === 'image') {
                 formats = [
                     {val: 'jpg', name: 'JPG (常用)'},
                     {val: 'png', name: 'PNG (透明背景)'},
                     {val: 'webp', name: 'WEBP (Google高效)'},
-                    {val: 'heic', name: 'HEIC (Apple照片)'}, // 嘗試支援
+                    {val: 'heic', name: 'HEIC (Apple照片)'}, 
                     {val: 'bmp', name: 'BMP'},
                     {val: 'gif', name: 'GIF (靜態)'},
                     {val: 'tiff', name: 'TIFF (印刷用)'},
@@ -426,7 +427,6 @@
         function updateFormatOptions(inputExt) {
             const options = document.getElementById('format-select').options;
             for (let i = 0; i < options.length; i++) {
-                // 簡單防呆：自己不能轉自己
                 options[i].disabled = (options[i].value === inputExt);
             }
         }
@@ -437,31 +437,32 @@
             if (!targetFormat) { alert('請選擇輸出格式'); return; }
 
             document.getElementById('convert-btn').disabled = true;
-            document.getElementById('convert-btn').innerText = '處理中，請稍候...';
+            document.getElementById('convert-btn').innerText = '系統初始化中...';
             document.getElementById('progress-container').style.display = 'block';
             startTime = Date.now();
 
             try {
-                // 智慧判斷：如果格式是複雜格式 (如 HEIC) 或是影片，一律走 FFmpeg
-                const simpleImages = ['jpg', 'png', 'webp', 'bmp', 'jpeg'];
+                const simpleImages = ['jpg', 'png', 'webp', 'bmp', 'jpeg', 'ico'];
                 const inputExt = selectedFile.name.split('.').pop().toLowerCase();
                 
-                // 如果是簡單圖片互轉 -> 用 Canvas (極速)
+                // 判斷是否使用 Canvas (簡單圖片轉檔)
                 if (currentMode === 'image' && simpleImages.includes(targetFormat) && simpleImages.includes(inputExt)) {
+                     document.getElementById('convert-btn').innerText = '圖片處理中...';
                     await convertImageCanvas(selectedFile, targetFormat);
                 } else {
-                    // 其他情況 (影片、HEIC、特殊圖片) -> 用 FFmpeg (全能)
+                    // 使用 FFmpeg (影片、GIF、HEIC)
                     await convertWithFFmpeg(selectedFile, targetFormat);
                 }
 
             } catch (err) {
                 console.error(err);
-                alert('轉換發生錯誤: ' + err.message + '\n(若為影片轉換，請確認已從 GitHub Pages 進入以啟用加速功能)');
+                // 發生錯誤時，將 ffmpeg 實例清空，強制下次重新載入
+                ffmpeg = null; 
+                alert('⚠️ 轉換發生錯誤: ' + err.message + '\n\n如果是影片轉檔，請確認您已在 GitHub Pages 或是支援 SharedArrayBuffer 的環境下運行，並嘗試重新整理頁面。');
                 resetUIState();
             }
         }
 
-        // Canvas 轉換 (快速，針對普通圖片)
         function convertImageCanvas(file, format) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -474,71 +475,83 @@
                         ctx.drawImage(img, 0, 0);
                         simulateProgress(800).then(() => {
                             let mime = format === 'jpg' ? 'image/jpeg' : `image/${format}`;
+                            if(format === 'ico') mime = 'image/x-icon';
+                            
                             canvas.toBlob((blob) => {
+                                if(!blob) { reject(new Error("Canvas 轉換失敗")); return; }
                                 downloadFile(blob, `converted.${format}`);
                                 resolve(); resetUIState();
                             }, mime, 0.9);
                         });
                     };
-                    img.onerror = () => reject(new Error("圖片載入失敗，可能格式不支援，請嘗試其他格式"));
+                    img.onerror = () => reject(new Error("圖片載入失敗，可能格式不支援"));
                     img.src = e.target.result;
                 };
+                reader.onerror = reject;
                 reader.readAsDataURL(file);
             });
         }
 
-        // FFmpeg 轉換 (全能，針對影片、HEIC、GIF)
         async function convertWithFFmpeg(file, format) {
+            // 檢查環境
             if (!crossOriginIsolated) {
-                alert('⚠️ 效能警告：瀏覽器安全環境未就緒。\n請重新整理頁面一次以啟用 SharedArrayBuffer 加速，否則轉換可能會失敗或極慢。');
-                // 這裡不 return，嘗試硬跑，但通常影片會失敗
+                throw new Error("SharedArrayBuffer 未啟用。請確保您已載入 coi-serviceworker.js 並重新整理頁面。");
             }
 
             const { FFmpeg } = FFmpegWASM;
             const { fetchFile } = FFmpegUtil;
 
-            if (!ffmpeg) {
+            // 初始化與載入邏輯 (重要修正)
+            if (ffmpeg === null) {
+                document.getElementById('convert-btn').innerText = '載入核心引擎... (首次較慢)';
                 ffmpeg = new FFmpeg();
                 ffmpeg.on('progress', ({ progress }) => updateProgress(Math.round(progress * 100)));
+                
+                // 這裡必須 await，如果失敗會跳到 catch
                 await ffmpeg.load();
             }
+
+            document.getElementById('convert-btn').innerText = '轉檔中...';
 
             const inputName = 'input.' + file.name.split('.').pop();
             const outputName = 'output.' + format;
             
-            // 寫入檔案到虛擬記憶體
             await ffmpeg.writeFile(inputName, await fetchFile(file));
 
             let args = ['-i', inputName, outputName];
             
-            // 針對 GIF 優化參數，避免檔案過大
+            // GIF 優化
             if (format === 'gif') {
                 args = ['-i', inputName, '-vf', 'fps=12,scale=480:-1:flags=lanczos', '-gifflags', '+transdiff', outputName];
             }
-            // 針對 Apple MOV 或 HEIC 的特殊處理 (視編碼器支援而定，盡力而為)
+            // MP4 通用相容性
             if (format === 'mp4') {
-                args = ['-i', inputName, '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '22', outputName]; 
+                args = ['-i', inputName, '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '22', '-c:a', 'aac', outputName]; 
+            }
+            // MOV
+            if (format === 'mov') {
+                 args = ['-i', inputName, '-c:v', 'libx264', '-f', 'mov', outputName];
             }
 
             await ffmpeg.exec(args);
             
-            // 讀取結果
             const data = await ffmpeg.readFile(outputName);
             
-            // 判斷 MIME Type
             let mimeType = `video/${format}`;
-            if (['jpg', 'png', 'heic', 'webp', 'bmp', 'tiff', 'ico', 'gif'].includes(format)) {
-                mimeType = `image/${format}`;
-                if (format === 'jpg') mimeType = 'image/jpeg';
-            }
+            if (['jpg', 'png', 'heic', 'webp', 'gif'].includes(format)) mimeType = `image/${format}`;
 
             const blob = new Blob([data.buffer], { type: mimeType });
             downloadFile(blob, outputName);
+            
+            // 清理內存中的檔案
+            await ffmpeg.deleteFile(inputName);
+            await ffmpeg.deleteFile(outputName);
+            
             resetUIState();
         }
 
         function updateProgress(percent) {
-            if (percent < 0) return; // 忽略異常值
+            if (percent < 0) return;
             const fill = document.getElementById('progress-fill');
             fill.style.width = `${percent}%`;
             document.getElementById('progress-percent').innerText = `${percent}%`;
@@ -549,7 +562,7 @@
                 const remaining = totalTime - elapsed;
                 document.getElementById('time-left').innerText = `估算剩餘: ${remaining.toFixed(1)} 秒`;
             } else if (percent >= 100) {
-                document.getElementById('time-left').innerText = '轉換完成！';
+                document.getElementById('time-left').innerText = '處理完成，正在打包...';
             }
         }
 
