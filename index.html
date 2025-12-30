@@ -17,8 +17,8 @@
         :root {
             --bg-color: #F2F2F7;
             --card-bg: rgba(255, 255, 255, 0.85);
-            --primary: #4A6C96;
-            --primary-hover: #3A5576;
+            --primary: #4c419e;
+            --primary-hover: #4c419e;
             --text-main: #1C1C1E;
             --text-sub: #8E8E93;
             --separator: #C6C6C8;
@@ -227,10 +227,10 @@
             <h2 style="color: var(--primary); margin-bottom: 30px;">關於軟體</h2>
             <div class="credits-list">
                 <h3>非常感謝 / Credits</h3>
-                <ul><li>FFmpeg.wasm v0.10 (Legacy Stable)</li><li>Google Fonts</li><li>HTML5 Canvas API</li></ul>
+                <ul><li>FFmpeg.wasm v0.10 (Local)</li><li>Google Fonts</li><li>HTML5 Canvas API</li></ul>
                 <p style="margin-top: 20px; font-size: 13px; line-height: 1.6; color: var(--text-sub);">本程式所有運算皆於本地端完成。</p>
             </div>
-            <div style="margin-top: auto; font-size: 12px; color: #C6C6C8;">Version 2.2.0 (Safari Fix)<br>Build 2025</div>
+            <div style="margin-top: auto; font-size: 12px; color: #C6C6C8;">Version 2.3.0 (Local Core)<br>Build 2025</div>
         </div>
     </div>
 
@@ -238,7 +238,6 @@
         let currentMode = ''; 
         let selectedFile = null;
         let ffmpeg = null; 
-        // 使用 v0.10.1 API
         const { createFFmpeg, fetchFile } = FFmpeg;
 
         function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
@@ -251,7 +250,7 @@
             resetWorkspace();
             setupFormats(mode);
 
-            // ⚡️ 關鍵修復：打開選單時就預先載入，避免 Safari 報錯 "not ready"
+            // 預先載入 (改為載入本地檔案)
             if ((mode === 'video' || mode === 'gif') && ffmpeg === null) {
                 initFFmpeg();
             }
@@ -260,17 +259,22 @@
         async function initFFmpeg() {
             try {
                 if(ffmpeg) return;
-                console.log('正在預先載入 FFmpeg...');
-                // 明確指定 corePath 以確保穩定性
+                console.log('正在載入本地 FFmpeg...');
+                
+                // ⚠️ 關鍵修改：路徑指向本地檔案 (./ffmpeg-core.js)
+                // 這樣 Safari 就不會因為跨域問題而阻擋 Worker
                 ffmpeg = createFFmpeg({ 
                     log: true, 
-                    corePath: 'https://unpkg.com/@ffmpeg/core@0.10.1/dist/ffmpeg-core.js' 
+                    corePath: './ffmpeg-core.js' 
                 });
+                
                 await ffmpeg.load();
-                console.log('FFmpeg 載入完成！');
+                console.log('FFmpeg 本地核心載入完成！');
             } catch (e) {
                 console.error('FFmpeg 載入失敗', e);
-                ffmpeg = null; // 失敗則重置，讓下次重試
+                // 顯示更詳細的錯誤給使用者
+                alert('引擎載入失敗：請確認您已下載 ffmpeg-core.js 與 ffmpeg-core.wasm 並放在同目錄下。\n\n錯誤訊息: ' + e.message);
+                ffmpeg = null; 
             }
         }
 
@@ -333,17 +337,14 @@
                 const simpleImages = ['jpg','png','webp','bmp','jpeg','ico'];
                 const inputExt = selectedFile.name.split('.').pop().toLowerCase();
                 
-                // 圖片走 Canvas
                 if (currentMode === 'image' && simpleImages.includes(targetFormat) && simpleImages.includes(inputExt)) {
                     await convertImageCanvas(selectedFile, targetFormat);
                 } else {
-                    // 影片/GIF 走 FFmpeg
-                    // 再次檢查 FFmpeg 是否就緒
                     if (ffmpeg === null || !ffmpeg.isLoaded()) {
                         btn.innerText = '正在初始化引擎...';
                         await initFFmpeg();
                     }
-                    if (ffmpeg === null) throw new Error("轉換引擎無法啟動，請重新整理頁面再試。");
+                    if (ffmpeg === null) throw new Error("引擎啟動失敗，請檢查檔案是否完整。");
                     
                     await convertWithFFmpeg(selectedFile, targetFormat);
                 }
@@ -389,18 +390,13 @@
 
             ffmpeg.FS('writeFile', inputName, await fetchFile(file));
 
-            // 更新按鈕狀態
             document.getElementById('convert-btn').innerText = '轉換中 (請勿關閉)...';
-
-            // 綁定進度條
             ffmpeg.setProgress(({ ratio }) => {
                 updateProgress(Math.round(ratio * 100));
             });
 
             let args = ['-i', inputName, outputName];
-            // Safari 穩定性優化：降低 GIF 幀率避免崩潰
             if (format === 'gif') args = ['-i', inputName, '-vf', 'fps=10,scale=320:-1', outputName];
-            // MP4 通用參數
             if (format === 'mp4') args = ['-i', inputName, '-c:v', 'libx264', '-preset', 'ultrafast', '-c:a', 'aac', outputName];
 
             await ffmpeg.run(...args);
@@ -411,7 +407,6 @@
 
             downloadFile(new Blob([data.buffer], { type: mime }), outputName);
             
-            // 清理
             try { ffmpeg.FS('unlink', inputName); ffmpeg.FS('unlink', outputName); } catch(e){}
             resetUIState();
         }
