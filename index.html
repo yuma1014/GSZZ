@@ -1,6 +1,14 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
+    <script>
+        // 如果瀏覽器閹割了 SharedArrayBuffer (如 iOS Safari)，我們用普通 ArrayBuffer 頂替
+        // 這能騙過 FFmpeg，強制它以單執行緒模式啟動，解決 "Can't find variable" 錯誤
+        if (!window.SharedArrayBuffer) {
+            window.SharedArrayBuffer = window.ArrayBuffer;
+        }
+    </script>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#F2F2F7">
@@ -10,10 +18,10 @@
     <link rel="apple-touch-icon" href="icon.png">
     <link rel="icon" type="image/png" href="icon.png">
     
-    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.9.0/dist/ffmpeg.min.js"></script>
+    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.10.1/dist/ffmpeg.min.js"></script>
 
     <style>
-        /* --- iOS 設計系統 (維持您的紫色風格) --- */
+        /* --- iOS 設計系統 --- */
         :root {
             --bg-color: #F2F2F7;
             --card-bg: rgba(255, 255, 255, 0.95);
@@ -42,9 +50,8 @@
         }
 
         header {
-            /* ⚠️ 恢復原始 Logo 空間設定 */
-            padding: 10px 20px; 
-            height: 64px; /* 稍微加高以容納大 Logo */
+            padding: 8px 20px;
+            height: 64px; /* 確保高度足夠 */
             display: flex; justify-content: space-between; align-items: center;
             z-index: 10;
             background: rgba(242, 242, 247, 0.85);
@@ -57,11 +64,11 @@
             display: flex; 
             align-items: center; 
             flex: 1;
-            overflow: hidden; /* 防止撐開 */
+            overflow: hidden; 
         }
         
         .logo-img { 
-            /* ⚠️ Logo 大小改回原始設定：填滿高度，寬度自動 */
+            /* ⚠️ Logo 大小修復：填滿高度，寬度自動 */
             height: 100%; 
             width: auto; 
             object-fit: contain; 
@@ -146,6 +153,12 @@
             align-items: center; justify-content: center;
             color: var(--text-sub); margin-bottom: 24px;
             background: #FFFFFF; 
+            transition: all 0.2s;
+        }
+        .drop-zone.dragover {
+            border-color: var(--primary);
+            background: rgba(76, 65, 158, 0.05);
+            transform: scale(1.02);
         }
 
         select, button.action-btn {
@@ -235,9 +248,9 @@
             <button class="close-btn" onclick="closeWorkspace()">✕ 關閉</button>
         </div>
         
-        <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+        <div class="drop-zone" id="drop-zone">
             <svg class="icon-svg" style="width: 32px; height: 32px; color: #C7C7CC; margin-bottom: 10px;" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-            <p style="margin:0; color: #8E8E93;">點擊選擇檔案</p>
+            <p style="margin:0; color: #8E8E93;">點擊或拖放檔案</p>
             <input type="file" id="file-input" style="display: none;">
         </div>
         
@@ -259,7 +272,7 @@
             <div class="credits-list">
                 <p style="font-size: 14px; color: #333; margin-bottom: 10px;">技術支援：</p>
                 <ul style="color: #666; font-size: 13px; padding-left: 20px;">
-                    <li>FFmpeg v0.9.0 (CDN)</li>
+                    <li>FFmpeg v0.10.1 (Patched)</li>
                     <li>Pure Frontend PWA</li>
                 </ul>
                 <p style="margin-top: 20px; font-size: 13px; color: #8E8E93; line-height: 1.5;">
@@ -271,6 +284,14 @@
     </div>
 
     <script>
+        // ⚠️ 1. 全域阻止瀏覽器預設的「開啟檔案」行為 (修復電腦端拖曳問題)
+        window.addEventListener('dragover', function(e) {
+            e.preventDefault();
+        }, false);
+        window.addEventListener('drop', function(e) {
+            e.preventDefault();
+        }, false);
+
         let currentMode = ''; 
         let selectedFile = null;
         let ffmpeg = null;
@@ -289,7 +310,7 @@
             resetWorkspace();
             setupFormats(mode);
 
-            // 延遲載入以確保 UI 流暢
+            // 延遲載入
             setTimeout(() => {
                 if ((mode === 'video' || mode === 'gif') && ffmpeg === null) {
                     initFFmpeg();
@@ -305,18 +326,16 @@
         async function initFFmpeg() {
             if(ffmpeg) return;
             try {
-                // ⚠️ 關鍵設定：強制使用 jsDelivr CDN 載入 v0.9.0 核心
-                // 不再依賴本地檔案，減少 iOS 路徑讀取錯誤
+                // 使用 v0.10.1 (最穩定的 CDN 版本)
                 ffmpeg = createFFmpeg({ 
                     log: true,
-                    corePath: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.9.0/dist/ffmpeg-core.js'
+                    corePath: 'https://unpkg.com/@ffmpeg/core@0.10.1/dist/ffmpeg-core.js'
                 });
                 await ffmpeg.load();
                 console.log('FFmpeg Ready');
             } catch (e) {
                 console.error(e);
-                // 顯示真實錯誤訊息
-                alert('引擎載入失敗：' + e.message + '\n\n請檢查您的網路連線 (某些網路環境可能會阻擋 .wasm 檔案下載)。');
+                alert('引擎啟動失敗。如果您的裝置是 iOS，請確認上方補丁已生效。\n錯誤: ' + e.message);
                 ffmpeg = null;
             }
         }
@@ -328,12 +347,41 @@
             document.getElementById('progress-container').style.display = 'none';
             document.getElementById('convert-btn').disabled = false;
             document.getElementById('convert-btn').innerText = '開始轉換';
+            
+            const dropZone = document.getElementById('drop-zone');
+            dropZone.classList.remove('dragover');
         }
 
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('file-input');
         
-        dropZone.onclick = () => document.getElementById('file-input').click();
+        // 點擊觸發
+        dropZone.onclick = () => fileInput.click();
+        
+        // ⚠️ 2. 修正拖曳邏輯：明確綁定事件
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
         fileInput.onchange = (e) => handleFile(e.target.files[0]);
 
         function handleFile(file) {
@@ -384,7 +432,7 @@
                         btn.innerText = '正在初始化引擎...';
                         await initFFmpeg();
                     }
-                    if (ffmpeg === null) throw new Error("無法連接到轉換引擎，請檢查網路。");
+                    if (ffmpeg === null) throw new Error("引擎載入失敗，無法執行轉換。");
                     
                     await convertWithFFmpeg(selectedFile, targetFormat);
                 }
