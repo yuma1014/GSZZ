@@ -16,17 +16,16 @@
         /* --- iOS 設計系統 --- */
         :root {
             --bg-color: #F2F2F7;
-            --card-bg: rgba(255, 255, 255, 0.85);
-            --primary: #4c419e;
+            --card-bg: rgba(255, 255, 255, 0.95); /* 稍微不透明一點以提升效能 */
+            --primary: #4c419e; 
             --primary-hover: #4c419e;
-            --text-main: #1C1C1E;
+            --text-main: #000000;
             --text-sub: #8E8E93;
             --separator: #C6C6C8;
-            --radius-l: 22px;
-            --radius-m: 14px;
-            --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-            --shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+            --radius-l: 20px;
+            --radius-m: 12px;
+            --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+            --transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s ease;
         }
 
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -36,103 +35,150 @@
             background-color: var(--bg-color);
             font-family: var(--font-family);
             color: var(--text-main);
+            /* ⚠️ 修復手機高度卡死問題 */
             height: 100vh;
+            height: 100dvh; 
             overflow: hidden;
             display: flex; flex-direction: column;
         }
 
         header {
-            padding: 16px 24px;
+            padding: 12px 20px;
+            height: 60px;
             display: flex; justify-content: space-between; align-items: center;
             z-index: 10;
-            background: rgba(242, 242, 247, 0.8);
-            backdrop-filter: blur(10px);
+            background: rgba(242, 242, 247, 0.85);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            position: relative; /* 確保層級正確 */
         }
 
-        .logo-container { height: 44px; display: flex; align-items: center; }
-        .logo-img { height: 100%; width: auto; object-fit: contain; display: block; }
+        .logo-container { height: 100%; display: flex; align-items: center; }
+        .logo-img { height: 32px; width: auto; object-fit: contain; }
 
         .menu-btn {
             background: #FFFFFF; border: none; cursor: pointer;
-            width: 40px; height: 40px; border-radius: 50%;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            width: 36px; height: 36px; border-radius: 50%;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
             display: flex; align-items: center; justify-content: center;
-            transition: var(--transition);
             color: var(--primary);
+            z-index: 11; /* 確保按鈕在最上層 */
         }
-        .menu-btn:hover { transform: scale(1.1); }
 
         main {
-            flex: 1; overflow-y: auto;
-            padding: 20px 24px 120px 24px;
-            scroll-behavior: smooth;
+            flex: 1; 
+            overflow-y: auto; /* 允許垂直捲動 */
+            overflow-x: hidden;
+            padding: 20px 20px 100px 20px;
+            -webkit-overflow-scrolling: touch; /* 讓 iOS 捲動更滑順 */
+            position: relative;
+            z-index: 1; /* 確保在底層 */
         }
 
         .card {
             background: var(--card-bg);
-            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255,255,255,0.8);
             border-radius: var(--radius-l);
-            padding: 24px; margin-bottom: 20px;
-            box-shadow: var(--shadow);
-            transition: var(--transition);
+            padding: 24px; margin-bottom: 16px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+            display: block; /* 確保是區塊元素 */
+            position: relative;
+            /* ⚠️ 讓手機更容易點擊 */
             cursor: pointer;
+            touch-action: manipulation; 
         }
-        @media (hover: hover) { .card:hover { transform: scale(1.02); } }
-        .card:active { transform: scale(0.96); }
+        .card:active { transform: scale(0.97); background: #E5E5EA; }
 
         .card-icon {
-            font-size: 32px; margin-bottom: 16px;
-            background: #F2F2F7; width: 64px; height: 64px;
-            border-radius: 18px;
+            font-size: 28px; margin-bottom: 14px;
+            background: #F2F2F7; width: 56px; height: 56px;
+            border-radius: 16px;
             display: flex; align-items: center; justify-content: center;
             color: var(--primary);
+            pointer-events: none; /* 讓點擊穿透圖示直接觸發卡片 */
         }
 
-        .card h2 { margin: 0 0 6px 0; font-size: 19px; font-weight: 600; }
-        .card p { margin: 0; color: var(--text-sub); font-size: 14px; line-height: 1.4; }
+        .card h2 { margin: 0 0 6px 0; font-size: 18px; font-weight: 600; pointer-events: none; }
+        .card p { margin: 0; color: var(--text-sub); font-size: 14px; line-height: 1.4; pointer-events: none; }
 
+        /* --- 工作區 Modal (關鍵修復) --- */
         .workspace {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: var(--bg-color); z-index: 20;
+            background: var(--bg-color); 
+            z-index: 50; /* 蓋過一切 */
+            
+            /* ⚠️ 關鍵：預設狀態下完全隱藏，不擋住下方點擊 */
             transform: translateY(100%);
-            transition: transform 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+            visibility: hidden; 
+            pointer-events: none;
+            
+            transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s linear 0.3s;
             display: flex; flex-direction: column;
-            padding: 24px 24px 40px 24px;
+            padding: 20px;
         }
-        .workspace.active { transform: translateY(0); }
+        
+        .workspace.active { 
+            transform: translateY(0); 
+            visibility: visible;
+            pointer-events: auto; /* 開啟後才允許點擊 */
+            transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s linear 0s;
+        }
 
-        .ws-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .ws-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; min-height: 44px; }
         .close-btn {
             background: rgba(118, 118, 128, 0.12); border: none;
-            padding: 8px 16px; border-radius: 20px;
-            font-weight: 600; color: var(--text-main); font-size: 14px;
+            padding: 8px 16px; border-radius: 18px;
+            font-weight: 600; color: var(--text-main); font-size: 15px;
             cursor: pointer;
         }
 
         .drop-zone {
-            border: 2px dashed #C6C6C8; border-radius: var(--radius-l);
-            height: 160px; display: flex; flex-direction: column;
+            border: 2px dashed #D1D1D6; border-radius: var(--radius-l);
+            height: 180px; display: flex; flex-direction: column;
             align-items: center; justify-content: center;
             color: var(--text-sub); margin-bottom: 24px;
-            background: #FFFFFF; transition: var(--transition);
+            background: #FFFFFF; 
         }
-        .drop-zone.dragover { border-color: var(--primary); background: rgba(74, 108, 150, 0.05); transform: scale(1.01); }
 
         select, button.action-btn {
             width: 100%; padding: 16px; border-radius: var(--radius-m);
-            border: none; margin-bottom: 16px; font-size: 16px; outline: none;
+            border: none; margin-bottom: 16px; font-size: 17px; outline: none;
+            -webkit-appearance: none; /* iOS 樣式重置 */
         }
-        select { background: #FFFFFF; color: var(--text-main); appearance: none; }
+        select { background: #FFFFFF; color: var(--text-main); }
         
         button.action-btn {
             background: var(--primary); color: #fff;
             font-weight: 600; cursor: pointer;
-            box-shadow: 0 4px 12px rgba(74, 108, 150, 0.3);
-            transition: var(--transition);
         }
-        button.action-btn:active { transform: scale(0.98); opacity: 0.8; }
-        button.action-btn:disabled { background: var(--text-sub); opacity: 0.5; cursor: not-allowed; }
+        button.action-btn:disabled { background: var(--text-sub); opacity: 0.6; }
+
+        /* --- 側邊欄修復 --- */
+        .sidebar {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.3); backdrop-filter: blur(3px);
+            z-index: 100; 
+            
+            /* ⚠️ 關鍵修復 */
+            opacity: 0; 
+            pointer-events: none; 
+            visibility: hidden;
+            
+            transition: opacity 0.3s;
+        }
+        .sidebar.open { 
+            opacity: 1; 
+            pointer-events: auto; 
+            visibility: visible;
+        }
+        
+        .sidebar-content {
+            position: absolute; top: 0; right: 0; width: 280px;
+            height: 100%; background: #FFFFFF;
+            padding: 40px 24px;
+            transform: translateX(100%); 
+            transition: transform 0.3s ease;
+            box-shadow: -5px 0 20px rgba(0,0,0,0.1);
+        }
+        .sidebar.open .sidebar-content { transform: translateX(0); }
 
         .privacy-notice {
             margin-top: 20px; padding: 12px;
@@ -147,28 +193,8 @@
         .progress-fill { height: 100%; background: var(--primary); width: 0%; transition: width 0.2s linear; }
         .status-text { margin-top: 10px; font-size: 13px; color: var(--text-sub); display: flex; justify-content: space-between; }
 
-        .sidebar {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.2); backdrop-filter: blur(5px);
-            z-index: 30; opacity: 0; pointer-events: none; transition: opacity 0.3s;
-        }
-        .sidebar.open { opacity: 1; pointer-events: auto; }
-        
-        .sidebar-content {
-            position: absolute; top: 0; right: 0; width: 80%; max-width: 320px;
-            height: 100%; background: #FFFFFF;
-            padding: 40px 28px;
-            transform: translateX(100%); transition: transform 0.4s cubic-bezier(0.19, 1, 0.22, 1);
-            display: flex; flex-direction: column;
-            box-shadow: -5px 0 30px rgba(0,0,0,0.1);
-        }
-        .sidebar.open .sidebar-content { transform: translateX(0); }
-        
-        .credits-list ul { padding-left: 20px; }
-        .credits-list li { margin-bottom: 8px; color: var(--text-sub); font-size: 14px; }
-
-        footer { margin-top: auto; text-align: center; padding: 30px 20px; font-size: 13px; color: var(--text-sub); }
-        .icon-svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+        footer { margin-top: auto; text-align: center; padding: 30px; font-size: 12px; color: var(--text-sub); }
+        .icon-svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
     </style>
 </head>
 <body>
@@ -185,28 +211,31 @@
     <main>
         <div class="card" onclick="openWorkspace('image')">
             <div class="card-icon"><svg class="icon-svg" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg></div>
-            <h2>圖片格式轉換</h2><p>支援 JPG, PNG, HEIC, WEBP 等格式互轉。</p>
+            <h2>圖片格式轉換</h2><p>支援 JPG, PNG, HEIC, WEBP</p>
         </div>
+        
         <div class="card" onclick="openWorkspace('video')">
             <div class="card-icon"><svg class="icon-svg" viewBox="0 0 24 24"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg></div>
-            <h2>影片格式轉換</h2><p>MP4, MOV, MKV, AVI, WMV 全格式支援。</p>
+            <h2>影片格式轉換</h2><p>MP4, MOV, MKV, AVI</p>
         </div>
+        
         <div class="card" onclick="openWorkspace('gif')">
             <div class="card-icon"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"></path><path d="M10 9v6"></path><path d="M14 9v6"></path></svg></div>
-            <h2>影片與 GIF 互轉</h2><p>製作高品質 GIF 動圖，或還原為影片。</p>
+            <h2>影片與 GIF 互轉</h2><p>GIF 動圖製作</p>
         </div>
+        
         <footer><div id="copyright"></div></footer>
     </main>
 
     <div id="workspace" class="workspace">
         <div class="ws-header">
-            <h2 id="ws-title" style="margin:0; color: var(--text-main); font-size: 22px;">工具名稱</h2>
+            <h2 id="ws-title" style="margin:0; font-size: 20px;">工具名稱</h2>
             <button class="close-btn" onclick="closeWorkspace()">✕ 關閉</button>
         </div>
         
         <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
-            <svg class="icon-svg" style="width: 32px; height: 32px; color: var(--separator); margin-bottom: 10px;" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-            <p style="margin:0;">點擊或拖放檔案</p>
+            <svg class="icon-svg" style="width: 32px; height: 32px; color: #C7C7CC; margin-bottom: 10px;" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            <p style="margin:0; color: #8E8E93;">點擊選擇檔案</p>
             <input type="file" id="file-input" style="display: none;">
         </div>
         
@@ -214,7 +243,7 @@
         <select id="format-select"><option value="" disabled selected>選擇輸出格式</option></select>
         <button class="action-btn" id="convert-btn" onclick="startConversion()">開始轉換</button>
 
-        <div class="privacy-notice">🔒 <strong>隱私安全承諾</strong><br>本軟體為純前端應用，所有轉換皆在您的裝置上執行，檔案不會上傳。</div>
+        <div class="privacy-notice">🔒 <strong>隱私安全承諾</strong><br>本軟體為純前端應用，所有轉換皆在您的裝置上執行，檔案不會上傳。<br>轉換速率取決於用戶設備效能，若檔案較大請耐心等候。</div>
 
         <div class="progress-container" id="progress-container">
             <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
@@ -224,25 +253,31 @@
 
     <div class="sidebar" id="sidebar" onclick="if(event.target === this) toggleSidebar()">
         <div class="sidebar-content">
-            <h2 style="color: var(--primary); margin-bottom: 30px;">關於軟體</h2>
+            <h2 style="color: var(--primary); margin-bottom: 20px;">關於</h2>
             <div class="credits-list">
-                <h3>非常感謝 / Credits</h3>
-                <ul><li>FFmpeg.wasm v0.9.8 (iOS Stable)</li><li>Google Fonts</li><li>HTML5 Canvas API</li></ul>
-                <p style="margin-top: 20px; font-size: 13px; line-height: 1.6; color: var(--text-sub);">本程式所有運算皆於本地端完成。</p>
+                <p style="font-size: 14px; color: #333; margin-bottom: 10px;">技術支援：</p>
+                <ul style="color: #666; font-size: 13px; padding-left: 20px;">
+                    <li>FFmpeg v0.9.8</li>
+                    <li>Pure Frontend PWA</li>
+                </ul>
+                <p style="margin-top: 20px; font-size: 13px; color: #8E8E93; line-height: 1.5;">
+                    專為電腦與行動裝置優化的純前端轉檔工具。
+                </p>
             </div>
-            <div style="margin-top: auto; font-size: 12px; color: #C6C6C8;">Version 3.0 (iOS Final Fix)<br>Build 2025</div>
+            <div style="margin-top: auto; font-size: 12px; color: #C6C6C8;">Build 2025.12</div>
         </div>
     </div>
 
     <script>
         let currentMode = ''; 
         let selectedFile = null;
-        let ffmpeg = null; 
-        
-        // ⚠️ v0.9.8 的 API 寫法略有不同，這是專為 iOS 修正的版本
+        let ffmpeg = null;
         const { createFFmpeg, fetchFile } = FFmpeg;
 
-        function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
+        function toggleSidebar() { 
+            const sb = document.getElementById('sidebar');
+            sb.classList.toggle('open');
+        }
         
         function openWorkspace(mode) {
             currentMode = mode;
@@ -252,33 +287,34 @@
             resetWorkspace();
             setupFormats(mode);
 
-            // 預先載入
-            if ((mode === 'video' || mode === 'gif') && ffmpeg === null) {
-                initFFmpeg();
-            }
+            // 延遲載入以確保 UI 流暢
+            setTimeout(() => {
+                if ((mode === 'video' || mode === 'gif') && ffmpeg === null) {
+                    initFFmpeg();
+                }
+            }, 300);
+        }
+
+        function closeWorkspace() { 
+            document.getElementById('workspace').classList.remove('active'); 
+            resetWorkspace(); 
         }
 
         async function initFFmpeg() {
+            if(ffmpeg) return;
             try {
-                if(ffmpeg) return;
-                console.log('正在初始化 FFmpeg v0.9.8...');
-                
-                // ⚠️ 使用 v0.9.8 核心，這是最穩定的單執行緒版本
-                // log: true 方便除錯
+                // 使用 v0.9.8 核心
                 ffmpeg = createFFmpeg({ 
                     log: true,
                     corePath: 'https://unpkg.com/@ffmpeg/core@0.9.8/dist/ffmpeg-core.js'
                 });
-                
                 await ffmpeg.load();
-                console.log('FFmpeg 載入完成！');
+                console.log('FFmpeg Ready');
             } catch (e) {
-                console.error('FFmpeg 載入失敗', e);
-                ffmpeg = null; 
+                console.error(e);
+                ffmpeg = null;
             }
         }
-
-        function closeWorkspace() { document.getElementById('workspace').classList.remove('active'); resetWorkspace(); }
 
         function resetWorkspace() {
             selectedFile = null;
@@ -291,10 +327,11 @@
 
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('file-input');
-        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
-        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'); });
-        dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); handleFile(e.dataTransfer.files[0]); });
-        fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+        
+        // 修正：防止重複綁定與事件冒泡
+        dropZone.onclick = () => document.getElementById('file-input').click();
+        
+        fileInput.onchange = (e) => handleFile(e.target.files[0]);
 
         function handleFile(file) {
             if (!file) return;
@@ -341,10 +378,10 @@
                     await convertImageCanvas(selectedFile, targetFormat);
                 } else {
                     if (ffmpeg === null || !ffmpeg.isLoaded()) {
-                        btn.innerText = '正在初始化引擎... (首次載入約需10秒)';
+                        btn.innerText = '正在初始化引擎...';
                         await initFFmpeg();
                     }
-                    if (ffmpeg === null) throw new Error("引擎啟動失敗，請重新整理頁面。");
+                    if (ffmpeg === null) throw new Error("引擎啟動失敗");
                     
                     await convertWithFFmpeg(selectedFile, targetFormat);
                 }
@@ -375,9 +412,8 @@
                                 updateProgress(100);
                                 resolve(); resetUIState();
                             }, mime, 0.9);
-                        }, 500);
+                        }, 200);
                     };
-                    img.onerror = () => reject(new Error("Image Load Error"));
                     img.src = e.target.result;
                 };
                 reader.readAsDataURL(file);
@@ -388,14 +424,10 @@
             const inputName = 'input.' + file.name.split('.').pop();
             const outputName = 'output.' + format;
 
-            // v0.9.8 使用方式
             ffmpeg.FS('writeFile', inputName, await fetchFile(file));
 
             document.getElementById('convert-btn').innerText = '轉換中 (請勿關閉)...';
-            
-            ffmpeg.setProgress(({ ratio }) => {
-                updateProgress(Math.round(ratio * 100));
-            });
+            ffmpeg.setProgress(({ ratio }) => updateProgress(Math.round(ratio * 100)));
 
             let args = ['-i', inputName, outputName];
             if (format === 'gif') args = ['-i', inputName, '-vf', 'fps=10,scale=320:-1', outputName];
