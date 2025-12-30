@@ -10,15 +10,15 @@
     <link rel="apple-touch-icon" href="icon.png">
     <link rel="icon" type="image/png" href="icon.png">
     
-    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
+    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.10.1/dist/ffmpeg.min.js"></script>
 
     <style>
         /* --- iOS 設計系統 --- */
         :root {
             --bg-color: #F2F2F7;
             --card-bg: rgba(255, 255, 255, 0.85);
-            --primary: #4c419e;
-            --primary-hover: #4c419e;
+            --primary: #4A6C96;
+            --primary-hover: #3A5576;
             --text-main: #1C1C1E;
             --text-sub: #8E8E93;
             --separator: #C6C6C8;
@@ -41,7 +41,6 @@
             display: flex; flex-direction: column;
         }
 
-        /* --- 頂部導航 --- */
         header {
             padding: 16px 24px;
             display: flex; justify-content: space-between; align-items: center;
@@ -63,7 +62,6 @@
         }
         .menu-btn:hover { transform: scale(1.1); }
 
-        /* --- 主畫面 --- */
         main {
             flex: 1; overflow-y: auto;
             padding: 20px 24px 120px 24px;
@@ -94,7 +92,6 @@
         .card h2 { margin: 0 0 6px 0; font-size: 19px; font-weight: 600; }
         .card p { margin: 0; color: var(--text-sub); font-size: 14px; line-height: 1.4; }
 
-        /* --- 工作區 Modal --- */
         .workspace {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: var(--bg-color); z-index: 20;
@@ -150,7 +147,6 @@
         .progress-fill { height: 100%; background: var(--primary); width: 0%; transition: width 0.2s linear; }
         .status-text { margin-top: 10px; font-size: 13px; color: var(--text-sub); display: flex; justify-content: space-between; }
 
-        /* --- 側邊欄 --- */
         .sidebar {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.2); backdrop-filter: blur(5px);
@@ -231,20 +227,22 @@
             <h2 style="color: var(--primary); margin-bottom: 30px;">關於軟體</h2>
             <div class="credits-list">
                 <h3>非常感謝 / Credits</h3>
-                <ul><li>FFmpeg.wasm v0.11 (MIT)</li><li>Google Fonts</li><li>HTML5 Canvas API</li></ul>
+                <ul><li>FFmpeg.wasm v0.10 (Legacy Stable)</li><li>Google Fonts</li><li>HTML5 Canvas API</li></ul>
                 <p style="margin-top: 20px; font-size: 13px; line-height: 1.6; color: var(--text-sub);">本程式所有運算皆於本地端完成。</p>
             </div>
-            <div style="margin-top: auto; font-size: 12px; color: #C6C6C8;">Version 2.1.0 (Universal)<br>Build 2025</div>
+            <div style="margin-top: auto; font-size: 12px; color: #C6C6C8;">Version 2.2.0 (Safari Fix)<br>Build 2025</div>
         </div>
     </div>
 
     <script>
         let currentMode = ''; 
         let selectedFile = null;
-        let ffmpeg = null; // 0.11 instance
-        const { createFFmpeg, fetchFile } = FFmpeg; // 0.11 API
+        let ffmpeg = null; 
+        // 使用 v0.10.1 API
+        const { createFFmpeg, fetchFile } = FFmpeg;
 
         function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
+        
         function openWorkspace(mode) {
             currentMode = mode;
             const titles = { 'image': '圖片格式轉換', 'video': '影片格式轉換', 'gif': '影片與 GIF 互轉' };
@@ -252,7 +250,30 @@
             document.getElementById('workspace').classList.add('active');
             resetWorkspace();
             setupFormats(mode);
+
+            // ⚡️ 關鍵修復：打開選單時就預先載入，避免 Safari 報錯 "not ready"
+            if ((mode === 'video' || mode === 'gif') && ffmpeg === null) {
+                initFFmpeg();
+            }
         }
+
+        async function initFFmpeg() {
+            try {
+                if(ffmpeg) return;
+                console.log('正在預先載入 FFmpeg...');
+                // 明確指定 corePath 以確保穩定性
+                ffmpeg = createFFmpeg({ 
+                    log: true, 
+                    corePath: 'https://unpkg.com/@ffmpeg/core@0.10.1/dist/ffmpeg-core.js' 
+                });
+                await ffmpeg.load();
+                console.log('FFmpeg 載入完成！');
+            } catch (e) {
+                console.error('FFmpeg 載入失敗', e);
+                ffmpeg = null; // 失敗則重置，讓下次重試
+            }
+        }
+
         function closeWorkspace() { document.getElementById('workspace').classList.remove('active'); resetWorkspace(); }
 
         function resetWorkspace() {
@@ -303,18 +324,28 @@
             const targetFormat = document.getElementById('format-select').value;
             if (!targetFormat) return;
 
-            document.getElementById('convert-btn').disabled = true;
-            document.getElementById('convert-btn').innerText = '準備中...';
+            const btn = document.getElementById('convert-btn');
+            btn.disabled = true;
+            btn.innerText = '處理中...';
             document.getElementById('progress-container').style.display = 'block';
 
             try {
                 const simpleImages = ['jpg','png','webp','bmp','jpeg','ico'];
                 const inputExt = selectedFile.name.split('.').pop().toLowerCase();
                 
+                // 圖片走 Canvas
                 if (currentMode === 'image' && simpleImages.includes(targetFormat) && simpleImages.includes(inputExt)) {
                     await convertImageCanvas(selectedFile, targetFormat);
                 } else {
-                    await convertWithLegacyFFmpeg(selectedFile, targetFormat);
+                    // 影片/GIF 走 FFmpeg
+                    // 再次檢查 FFmpeg 是否就緒
+                    if (ffmpeg === null || !ffmpeg.isLoaded()) {
+                        btn.innerText = '正在初始化引擎...';
+                        await initFFmpeg();
+                    }
+                    if (ffmpeg === null) throw new Error("轉換引擎無法啟動，請重新整理頁面再試。");
+                    
+                    await convertWithFFmpeg(selectedFile, targetFormat);
                 }
             } catch (err) {
                 console.error(err);
@@ -323,7 +354,6 @@
             }
         }
 
-        // Canvas 簡單圖片轉換
         function convertImageCanvas(file, format) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -353,25 +383,24 @@
             });
         }
 
-        // 使用 FFmpeg 0.11 (不需 Header)
-        async function convertWithLegacyFFmpeg(file, format) {
-            if (ffmpeg === null) {
-                document.getElementById('convert-btn').innerText = '下載轉換核心...';
-                ffmpeg = createFFmpeg({ log: true, corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js' });
-                ffmpeg.setProgress(({ ratio }) => {
-                    updateProgress(Math.round(ratio * 100));
-                });
-                await ffmpeg.load();
-            }
-
-            document.getElementById('convert-btn').innerText = '轉換中...';
+        async function convertWithFFmpeg(file, format) {
             const inputName = 'input.' + file.name.split('.').pop();
             const outputName = 'output.' + format;
 
             ffmpeg.FS('writeFile', inputName, await fetchFile(file));
 
+            // 更新按鈕狀態
+            document.getElementById('convert-btn').innerText = '轉換中 (請勿關閉)...';
+
+            // 綁定進度條
+            ffmpeg.setProgress(({ ratio }) => {
+                updateProgress(Math.round(ratio * 100));
+            });
+
             let args = ['-i', inputName, outputName];
+            // Safari 穩定性優化：降低 GIF 幀率避免崩潰
             if (format === 'gif') args = ['-i', inputName, '-vf', 'fps=10,scale=320:-1', outputName];
+            // MP4 通用參數
             if (format === 'mp4') args = ['-i', inputName, '-c:v', 'libx264', '-preset', 'ultrafast', '-c:a', 'aac', outputName];
 
             await ffmpeg.run(...args);
@@ -382,7 +411,7 @@
 
             downloadFile(new Blob([data.buffer], { type: mime }), outputName);
             
-            // 清理記憶體
+            // 清理
             try { ffmpeg.FS('unlink', inputName); ffmpeg.FS('unlink', outputName); } catch(e){}
             resetUIState();
         }
