@@ -10,7 +10,7 @@
     <link rel="apple-touch-icon" href="icon.png">
     <link rel="icon" type="image/png" href="icon.png">
     
-    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.10.1/dist/ffmpeg.min.js"></script>
+    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.0/dist/ffmpeg.min.js"></script>
 
     <style>
         /* --- iOS 設計系統 --- */
@@ -227,10 +227,10 @@
             <h2 style="color: var(--primary); margin-bottom: 30px;">關於軟體</h2>
             <div class="credits-list">
                 <h3>非常感謝 / Credits</h3>
-                <ul><li>FFmpeg.wasm v0.10 (Local)</li><li>Google Fonts</li><li>HTML5 Canvas API</li></ul>
+                <ul><li>FFmpeg.wasm v0.11 (Single Thread)</li><li>Google Fonts</li><li>HTML5 Canvas API</li></ul>
                 <p style="margin-top: 20px; font-size: 13px; line-height: 1.6; color: var(--text-sub);">本程式所有運算皆於本地端完成。</p>
             </div>
-            <div style="margin-top: auto; font-size: 12px; color: #C6C6C8;">Version 2.3.0 (Local Core)<br>Build 2025</div>
+            <div style="margin-top: auto; font-size: 12px; color: #C6C6C8;">Version 2.4.0 (Compatibility Mode)<br>Build 2025</div>
         </div>
     </div>
 
@@ -250,7 +250,7 @@
             resetWorkspace();
             setupFormats(mode);
 
-            // 預先載入 (改為載入本地檔案)
+            // 預先載入
             if ((mode === 'video' || mode === 'gif') && ffmpeg === null) {
                 initFFmpeg();
             }
@@ -259,21 +259,19 @@
         async function initFFmpeg() {
             try {
                 if(ffmpeg) return;
-                console.log('正在載入本地 FFmpeg...');
+                console.log('正在初始化 FFmpeg (單核心模式)...');
                 
-                // ⚠️ 關鍵修改：路徑指向本地檔案 (./ffmpeg-core.js)
-                // 這樣 Safari 就不會因為跨域問題而阻擋 Worker
+                // ⚠️ 關鍵設定：強制指向 v0.11.0
+                // 這個版本在檢測不到 SharedArrayBuffer 時，會自動降級為單執行緒，不會報錯！
                 ffmpeg = createFFmpeg({ 
                     log: true, 
-                    corePath: './ffmpeg-core.js' 
+                    corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js'
                 });
                 
                 await ffmpeg.load();
-                console.log('FFmpeg 本地核心載入完成！');
+                console.log('FFmpeg 載入完成！');
             } catch (e) {
                 console.error('FFmpeg 載入失敗', e);
-                // 顯示更詳細的錯誤給使用者
-                alert('引擎載入失敗：請確認您已下載 ffmpeg-core.js 與 ffmpeg-core.wasm 並放在同目錄下。\n\n錯誤訊息: ' + e.message);
                 ffmpeg = null; 
             }
         }
@@ -344,7 +342,7 @@
                         btn.innerText = '正在初始化引擎...';
                         await initFFmpeg();
                     }
-                    if (ffmpeg === null) throw new Error("引擎啟動失敗，請檢查檔案是否完整。");
+                    if (ffmpeg === null) throw new Error("引擎啟動失敗，請重新整理頁面。");
                     
                     await convertWithFFmpeg(selectedFile, targetFormat);
                 }
@@ -433,7 +431,7 @@
         function updateFooter() {
             const now = new Date();
             const year = new Intl.DateTimeFormat('en-US', { year: 'numeric', timeZone: 'Asia/Taipei' }).format(now);
-            document.getElementById('copyright').innerHTML = `&copy;${year} 格式轉轉<br>DESIGNED BY - LCY from Taiwan(ROC)`;
+            document.getElementById('copyright').innerHTML = `&copy;${year} 格式轉轉<br>• DESIGNED BY - LCY from Taiwan(ROC) •`;
         }
         updateFooter();
     </script>
